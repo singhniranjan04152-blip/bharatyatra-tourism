@@ -459,7 +459,7 @@
         <p class="account-kicker">RAZORPAY TEST MODE</p>
         <h2 id="bookingTitle">Book an adventure</h2>
         <p class="booking-package-summary" id="bookingPackageSummary"></p>
-        <p class="adventure-disclaimer">Sample price only. Test checkout never collects real money or reserves an activity. Confirmation email requires email service setup.</p>
+        <p class="adventure-disclaimer">Sample price only. A request is not a confirmed reservation; no operator slot is reserved. Real payment methods will run only through the secure Razorpay test checkout.</p>
         <p class="booking-notice" id="bookingNotice" role="status" aria-live="polite"></p>
         <form id="adventureBookingForm">
             <label>Your name<input name="name" type="text" maxlength="80" autocomplete="name" required></label>
@@ -467,7 +467,14 @@
             <label>Indian mobile number<input name="phone" type="tel" inputmode="tel" maxlength="16" placeholder="9876543210" autocomplete="tel" required></label>
             <label>Activity date<input name="activityDate" type="date" required></label>
             <label>Participants (max 12)<input name="participants" type="number" min="1" max="12" value="1" required></label>
-            <button class="booking-primary" id="adventureBookingSubmit" type="submit">Continue to Razorpay test checkout</button>
+            <fieldset class="payment-methods">
+                <legend>Preferred payment method</legend>
+                <label><input type="radio" name="paymentMethod" value="upi" checked> UPI</label>
+                <label><input type="radio" name="paymentMethod" value="card"> Credit / debit card</label>
+                <label><input type="radio" name="paymentMethod" value="netbanking"> Net banking</label>
+                <label><input type="radio" name="paymentMethod" value="wallet"> Wallet</label>
+            </fieldset>
+            <button class="booking-primary" id="adventureBookingSubmit" type="submit">Send booking request (unpaid)</button>
         </form>
     </div>
 </section>
@@ -563,6 +570,5 @@
         </div>
     </section>
 
-    <script src="https://checkout.razorpay.com/v1/checkout.js" defer></script>
     <script src="/js/site.js" defer></script>
     <script src="/js/auth.js" defer></script>

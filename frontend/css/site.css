@@ -386,6 +386,10 @@ body.dark{
 .booking-package-summary{font-weight:700;color:var(--accent);}
 .booking-dialog label{display:block;margin:12px 0 5px;color:var(--muted);font-size:12px;font-weight:700;}
 .booking-dialog input{width:100%;margin-top:5px;padding:11px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);}
+.booking-dialog .payment-methods{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:14px 0 4px;padding:12px;border:1px solid var(--border);border-radius:12px;}
+.booking-dialog .payment-methods legend{padding:0 5px;font-size:12px;font-weight:700;}
+.booking-dialog .payment-methods label{display:flex;align-items:center;gap:7px;margin:0;padding:8px;border-radius:8px;background:var(--bg);}
+.booking-dialog .payment-methods input{width:auto;margin:0;accent-color:var(--accent);}
 .booking-primary{width:100%;margin-top:16px;}
 .booking-notice{display:none;margin:10px 0;padding:10px;border-radius:10px;background:var(--bg);font-size:13px;line-height:1.5;}
 .booking-notice.visible{display:block;}

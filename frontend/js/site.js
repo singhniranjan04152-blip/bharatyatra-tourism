@@ -460,6 +460,21 @@ async function loadAdventurePackages(){
     }
 }
 
+function loadRazorpayCheckout(){
+    if(typeof window.Razorpay==="function") return Promise.resolve();
+    return new Promise((resolve,reject)=>{
+        const script=document.createElement("script");
+        script.src="https://checkout.razorpay.com/v1/checkout.js";
+        script.async=true;
+        script.onload=()=>{
+            if(typeof window.Razorpay==="function") resolve();
+            else reject(new Error("Razorpay checkout did not initialize."));
+        };
+        script.onerror=()=>reject(new Error("Razorpay checkout could not load. Check your connection and try again."));
+        document.head.appendChild(script);
+    });
+}
+
 loadBackendData();
 loadAdventurePackages();
 
@@ -840,8 +855,8 @@ function renderDestinationAdventures(destinationName){
         const button=document.createElement("button");
         button.type="button";
         button.className="adventure-book-button";
-        button.textContent=testPaymentConfigured?"Book test package":"Test checkout not configured";
-        button.disabled=!testPaymentConfigured;
+        button.textContent=testPaymentConfigured?"Book test package":"Book / send request";
+        button.disabled=false;
         button.addEventListener("click",()=>openAdventureBooking(adventure.id));
         footer.append(price,button);
         card.append(heading,description,footer);
@@ -870,12 +885,15 @@ function openAdventureBooking(packageId){
     maxDate.setUTCDate(maxDate.getUTCDate()+365);
     form.elements.activityDate.max=maxDate.toISOString().slice(0,10);
     const button=document.getElementById("adventureBookingSubmit");
-    button.disabled=!testPaymentConfigured;
+    button.disabled=false;
+    button.textContent=testPaymentConfigured
+        ? "Continue to Razorpay test checkout"
+        : "Send booking request (unpaid)";
     setBookingNotice(testPaymentConfigured
         ? (bookingEmailConfigured
             ? "Razorpay TEST checkout is configured. Sample prices only; no real money is collected and no activity is reserved."
             : "Razorpay TEST checkout is configured. Confirmation email is not configured yet; no real money is collected.")
-        : "Test checkout is not configured on the server. No real payment can be taken.",!testPaymentConfigured);
+        : "Choose UPI, card, net banking or wallet as a preference. This sends an unpaid request only; it does not take payment or reserve an activity.");
     modal.classList.add("open");
     modal.setAttribute("aria-hidden","false");
 }
@@ -897,11 +915,7 @@ document.getElementById("adventureBookingModal")
 document.getElementById("adventureBookingForm")
     .addEventListener("submit",async event=>{
         event.preventDefault();
-        if(!selectedAdventure||!testPaymentConfigured) return;
-        if(typeof window.Razorpay!=="function"){
-            setBookingNotice("Razorpay checkout did not load. Check your connection and try again.",true);
-            return;
-        }
+        if(!selectedAdventure) return;
         const form=event.currentTarget;
         const submit=document.getElementById("adventureBookingSubmit");
         const payload={
@@ -910,18 +924,27 @@ document.getElementById("adventureBookingForm")
             email:form.elements.email.value.trim(),
             phone:form.elements.phone.value.trim(),
             activityDate:form.elements.activityDate.value,
-            participants:Number(form.elements.participants.value)
+            participants:Number(form.elements.participants.value),
+            paymentMethod:form.elements.paymentMethod.value
         };
         submit.disabled=true;
-        setBookingNotice("Creating a secure Razorpay test order...");
+        setBookingNotice(testPaymentConfigured
+            ? "Creating a secure Razorpay test order..."
+            : "Saving your unpaid booking request...");
         try{
-            const response=await fetch(`${API_BASE}/bookings/order`,{
+            if(testPaymentConfigured) await loadRazorpayCheckout();
+            const response=await fetch(`${API_BASE}/bookings/${testPaymentConfigured?"order":"request"}`,{
                 method:"POST",
                 headers:{"Content-Type":"application/json"},
                 body:JSON.stringify(payload)
             });
             const order=await response.json();
-            if(!response.ok) throw new Error(order.error||"Test order could not be created.");
+            if(!response.ok) throw new Error(order.error||"Booking request could not be created.");
+            if(!testPaymentConfigured){
+                setBookingNotice(`Unpaid request ${order.bookingId} saved. Preferred method: ${order.paymentMethod}. No payment was taken and no activity is reserved; contact with a real operator is not set up.`);
+                submit.disabled=false;
+                return;
+            }
             const checkout=new window.Razorpay({
                 key:order.keyId,
                 amount:order.amount,

@@ -88,6 +88,38 @@ function emailConfigured() {
   return Boolean(process.env.RESEND_API_KEY && process.env.BOOKING_EMAIL_FROM);
 }
 
+function validateBooking(body, packages) {
+  const adventure = packages.find((item) => item.id === body.packageId);
+  const participants = Number(body.participants);
+  const name = typeof body.name === "string" ? body.name.trim() : "";
+  const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+  const phone = typeof body.phone === "string" ? body.phone.replace(/[^\d+]/g, "") : "";
+  const paymentMethod = body.paymentMethod;
+  if (!adventure) throw new BookingError("Choose a valid adventure package.");
+  if (!Number.isInteger(participants) || participants < 1 || participants > 12) {
+    throw new BookingError("Bookings must be for 1 to 12 participants.");
+  }
+  if (name.length < 2 || name.length > 80 || !validEmail(email) || !/^(?:\+91)?[6-9]\d{9}$/.test(phone)) {
+    throw new BookingError("Enter your name, a valid email and a 10-digit Indian phone number.");
+  }
+  if (!validActivityDate(body.activityDate)) {
+    throw new BookingError("Choose an activity date within the next 12 months.");
+  }
+  if (!["upi", "card", "netbanking", "wallet"].includes(paymentMethod)) {
+    throw new BookingError("Choose UPI, card, net banking or wallet as your preferred payment method.");
+  }
+  return {
+    adventure,
+    participants,
+    name,
+    email,
+    phone,
+    paymentMethod,
+    activityDate: body.activityDate,
+    totalAmountPaise: adventure.unitPrice * participants * 100
+  };
+}
+
 function sendJson(response, status, body) {
   response.writeHead(status, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });
   response.end(JSON.stringify(body));
@@ -166,51 +198,74 @@ async function createOrder(request, response, packages) {
     return;
   }
   const body = await readRequestBody(request);
-  const adventure = packages.find((item) => item.id === body.packageId);
-  const participants = Number(body.participants);
-  const name = typeof body.name === "string" ? body.name.trim() : "";
-  const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
-  const phone = typeof body.phone === "string" ? body.phone.replace(/[^\d+]/g, "") : "";
-  if (!adventure) throw new BookingError("Choose a valid adventure package.");
-  if (!Number.isInteger(participants) || participants < 1 || participants > 12) {
-    throw new BookingError("Bookings must be for 1 to 12 participants.");
-  }
-  if (name.length < 2 || name.length > 80 || !validEmail(email) || !/^(?:\+91)?[6-9]\d{9}$/.test(phone)) {
-    throw new BookingError("Enter your name, a valid email and a 10-digit Indian phone number.");
-  }
-  if (!validActivityDate(body.activityDate)) {
-    throw new BookingError("Choose an activity date within the next 12 months.");
-  }
-
-  const totalAmountPaise = adventure.unitPrice * participants * 100;
-  const order = await razorpayRequest("/orders", "POST", {
-    amount: totalAmountPaise,
-    currency: "INR",
-    receipt: `bt_${crypto.randomBytes(10).toString("hex")}`,
-    notes: { packageId: adventure.id, destination: adventure.destination, participants: String(participants) }
-  });
+  const bookingInput = validateBooking(body, packages);
 
   const db = getDatabase();
+  await ensureSchema(db);
+  const order = await razorpayRequest("/orders", "POST", {
+    amount: bookingInput.totalAmountPaise,
+    currency: "INR",
+    receipt: `bt_${crypto.randomBytes(10).toString("hex")}`,
+    notes: {
+      packageId: bookingInput.adventure.id,
+      destination: bookingInput.adventure.destination,
+      participants: String(bookingInput.participants),
+      preferredPaymentMethod: bookingInput.paymentMethod
+    }
+  });
+
+  const id = crypto.randomBytes(12).toString("hex");
+  await db.query(`
+    INSERT INTO bharatyatra_adventure_bookings
+      (id, package_id, package_name, destination, activity_date, participants,
+       unit_amount_paise, total_amount_paise, customer_name, customer_email,
+       customer_phone, payment_method, razorpay_order_id)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+  `, [id, bookingInput.adventure.id, bookingInput.adventure.name, bookingInput.adventure.destination,
+    bookingInput.activityDate, bookingInput.participants, bookingInput.adventure.unitPrice * 100,
+    bookingInput.totalAmountPaise, bookingInput.name, bookingInput.email, bookingInput.phone,
+    bookingInput.paymentMethod, order.id]);
+
+  sendJson(response, 201, {
+    bookingId: id,
+    orderId: order.id,
+    amount: bookingInput.totalAmountPaise,
+    currency: "INR",
+    keyId: process.env.RAZORPAY_KEY_ID,
+    packageName: bookingInput.adventure.name,
+    destination: bookingInput.adventure.destination,
+    emailConfigured: emailConfigured()
+  });
+}
+
+async function createUnpaidBookingRequest(request, response, packages) {
+  const body = await readRequestBody(request);
+  const booking = validateBooking(body, packages);
+  const db = getDatabase();
+  if (!db) {
+    sendJson(response, 503, { error: "The booking request service is not configured. Please try again later." });
+    return;
+  }
   await ensureSchema(db);
   const id = crypto.randomBytes(12).toString("hex");
   await db.query(`
     INSERT INTO bharatyatra_adventure_bookings
       (id, package_id, package_name, destination, activity_date, participants,
        unit_amount_paise, total_amount_paise, customer_name, customer_email,
-       customer_phone, razorpay_order_id)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
-  `, [id, adventure.id, adventure.name, adventure.destination, body.activityDate,
-    participants, adventure.unitPrice * 100, totalAmountPaise, name, email, phone, order.id]);
+       customer_phone, payment_method, payment_status)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'requested')
+  `, [id, booking.adventure.id, booking.adventure.name, booking.adventure.destination,
+    booking.activityDate, booking.participants, booking.adventure.unitPrice * 100,
+    booking.totalAmountPaise, booking.name, booking.email, booking.phone, booking.paymentMethod]);
 
   sendJson(response, 201, {
     bookingId: id,
-    orderId: order.id,
-    amount: totalAmountPaise,
+    status: "request_received",
+    paid: false,
+    amount: booking.totalAmountPaise,
     currency: "INR",
-    keyId: process.env.RAZORPAY_KEY_ID,
-    packageName: adventure.name,
-    destination: adventure.destination,
-    emailConfigured: emailConfigured()
+    email: booking.email,
+    paymentMethod: booking.paymentMethod
   });
 }
 
@@ -303,6 +358,17 @@ async function handleBookingRequest(request, response, requestPath, destinations
       console.error("Adventure booking order failed:", error.message);
       sendJson(response, error.status || 502, {
         error: error.status === 400 ? error.message : "Test checkout is temporarily unavailable. Please try again."
+      });
+    }
+    return true;
+  }
+  if (requestPath === "/api/bookings/request" && request.method === "POST") {
+    try {
+      await createUnpaidBookingRequest(request, response, getAdventurePackages(destinationsLoader()));
+    } catch (error) {
+      console.error("Adventure booking request failed:", error.message);
+      sendJson(response, error.status || 502, {
+        error: error.status === 400 ? error.message : "Booking request could not be saved. Please try again."
       });
     }
     return true;

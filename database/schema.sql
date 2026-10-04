@@ -30,15 +30,32 @@ CREATE TABLE IF NOT EXISTS bharatyatra_adventure_bookings (
   customer_name VARCHAR(80) NOT NULL,
   customer_email VARCHAR(254) NOT NULL,
   customer_phone VARCHAR(20) NOT NULL,
-  razorpay_order_id TEXT NOT NULL UNIQUE,
+  payment_method VARCHAR(16) NOT NULL DEFAULT 'razorpay'
+    CHECK (payment_method IN ('upi', 'card', 'netbanking', 'wallet')),
+  razorpay_order_id TEXT UNIQUE,
   razorpay_payment_id TEXT UNIQUE,
   payment_status VARCHAR(16) NOT NULL DEFAULT 'pending'
-    CHECK (payment_status IN ('pending', 'paid', 'failed')),
+    CHECK (payment_status IN ('pending', 'requested', 'paid', 'failed')),
   email_status VARCHAR(16) NOT NULL DEFAULT 'pending'
     CHECK (email_status IN ('pending', 'sent', 'failed')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   paid_at TIMESTAMPTZ
 );
+
+ALTER TABLE bharatyatra_adventure_bookings
+  ALTER COLUMN razorpay_order_id DROP NOT NULL;
+ALTER TABLE bharatyatra_adventure_bookings
+  ADD COLUMN IF NOT EXISTS payment_method VARCHAR(16) NOT NULL DEFAULT 'razorpay';
+ALTER TABLE bharatyatra_adventure_bookings
+  DROP CONSTRAINT IF EXISTS bharatyatra_adventure_bookings_payment_status_check;
+ALTER TABLE bharatyatra_adventure_bookings
+  ADD CONSTRAINT bharatyatra_adventure_bookings_payment_status_check
+  CHECK (payment_status IN ('pending', 'requested', 'paid', 'failed'));
+ALTER TABLE bharatyatra_adventure_bookings
+  DROP CONSTRAINT IF EXISTS bharatyatra_adventure_bookings_payment_method_check;
+ALTER TABLE bharatyatra_adventure_bookings
+  ADD CONSTRAINT bharatyatra_adventure_bookings_payment_method_check
+  CHECK (payment_method IN ('upi', 'card', 'netbanking', 'wallet'));
 
 CREATE INDEX IF NOT EXISTS bharatyatra_bookings_created_idx
   ON bharatyatra_adventure_bookings (created_at DESC);

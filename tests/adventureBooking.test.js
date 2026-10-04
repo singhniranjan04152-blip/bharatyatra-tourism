@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
-const { getAdventurePackages } = require("../backend/adventures");
+const { Readable } = require("stream");
+const { getAdventurePackages, handleBookingRequest } = require("../backend/adventures");
 
 const siteJs = fs.readFileSync(path.join(__dirname, "..", "frontend", "js", "site.js"), "utf8");
 const start = siteJs.indexOf("let destinations = [") + "let destinations = ".length;
@@ -26,5 +27,50 @@ assert(new Set(packages.map((item) => item.id)).size === packages.length, "Adven
 const schema = fs.readFileSync(path.join(__dirname, "..", "database", "schema.sql"), "utf8");
 assert(schema.includes("bharatyatra_adventure_bookings"), "Missing persistent adventure booking table.");
 assert(schema.includes("CHECK (participants BETWEEN 1 AND 12)"), "Database must enforce the 12-person booking limit.");
+assert(schema.includes("'requested'"), "Database must support unpaid booking requests.");
+assert(schema.includes("payment_method"), "Database must store the selected payment preference.");
 
-console.log("Adventure package coverage and booking schema checks passed.");
+async function testUnconfiguredBookingRequest() {
+  const previousDatabaseUrl = process.env.DATABASE_URL;
+  delete process.env.DATABASE_URL;
+  const tomorrow = new Date();
+  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+  const requestBody = {
+    packageId: packages[0].id,
+    name: "Test Traveller",
+    email: "traveller@example.com",
+    phone: "9876543210",
+    activityDate: tomorrow.toISOString().slice(0, 10),
+    participants: 2,
+    paymentMethod: "upi"
+  };
+
+  async function send(payload) {
+    const request = Readable.from([JSON.stringify(payload)]);
+    request.method = "POST";
+    let result;
+    const response = {
+      writeHead(status) { this.status = status; },
+      end(body) { result = { status: this.status, body: JSON.parse(body) }; }
+    };
+    await handleBookingRequest(request, response, "/api/bookings/request", () => destinations);
+    return result;
+  }
+
+  try {
+    const unavailable = await send(requestBody);
+    assert(unavailable.status === 503 && !unavailable.body.paid, "An unconfigured database must not report a saved or paid booking.");
+    const rejected = await send({ ...requestBody, paymentMethod: "cash" });
+    assert(rejected.status === 400, "Reject unsupported payment methods.");
+  } finally {
+    if (previousDatabaseUrl === undefined) delete process.env.DATABASE_URL;
+    else process.env.DATABASE_URL = previousDatabaseUrl;
+  }
+}
+
+testUnconfiguredBookingRequest()
+  .then(() => console.log("Adventure package coverage and booking schema checks passed."))
+  .catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });

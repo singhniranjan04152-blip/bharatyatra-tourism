@@ -35,7 +35,7 @@ The trip planner lets travelers choose destinations, set travel dates and group 
 
 The destination details include two example adventure experiences per destination, with clearly labeled sample prices in INR. Booking forms accept 1–12 participants. These are demo listings only: there are no contracted operators, confirmed dates, permits, inventory, or real reservations.
 
-The payment integration is locked to Razorpay test keys (`RAZORPAY_KEY_ID` must start with `rzp_test_`). It validates the order and captured test payment on the server before marking a booking paid. It does not accept live Razorpay keys or collect real money. Confirmation email can be sent with Resend after setting `RESEND_API_KEY` and a verified `BOOKING_EMAIL_FROM` sender.
+The booking form records the selected UPI, card, net-banking, or wallet preference. Without payment configuration it can save only an **unpaid request** in PostgreSQL and explicitly says no activity is reserved. The payment integration is locked to Razorpay test keys (`RAZORPAY_KEY_ID` must start with `rzp_test_`). With test credentials, it validates the order and captured test payment on the server before marking a booking paid. It does not accept live Razorpay keys or collect real money. A payment confirmation email can be sent with Resend after setting `RESEND_API_KEY` and a verified `BOOKING_EMAIL_FROM` sender.
 
 Add the following as private Render environment variables or to `backend/.env` only for local tests:
 
