@@ -1,6 +1,6 @@
 # Bharatyatra Tourism
 
-Lightweight tourism website with a Node.js backend and a local JSON database. No MongoDB or heavy installation is required.
+Tourism website with a lightweight Node.js backend. Destination browsing works without an account; account registration and saved trip preferences use PostgreSQL.
 
 ## Run on the laptop
 
@@ -22,7 +22,20 @@ Open:
 http://localhost:3000
 ```
 
-The database is created automatically at `backend/data.json` when the server first saves a trip.
+The existing trip planner creates `backend/data.json` when it first saves a trip. Account registration also requires a PostgreSQL connection; see **Account database setup** below.
+
+## Account database setup
+
+The email/password account feature stores password hashes, login sessions, and travel preferences in PostgreSQL. It does not store passwords as plain text and does not use browser local storage for authentication.
+
+For a small project, a free Supabase PostgreSQL project can be used:
+
+1. Create a Supabase project and copy its PostgreSQL connection string from the project's database settings.
+2. In Render, open the `bharatyatra` service, go to **Environment**, and add `DATABASE_URL` with that connection string. Keep it private; never paste it into source files or GitHub.
+3. Save the environment change and redeploy the Render service. The account tables are created automatically the first time an account endpoint is used.
+4. For local testing, put `DATABASE_URL=<your connection string>` in `backend/.env` (that file is ignored by Git).
+
+The API uses a small connection pool and stores accounts separately from the existing trip JSON file. Free database providers can pause inactive projects and have usage limits; review the provider's current limits and keep an export/backup if account data matters.
 
 ## Open on a phone or another laptop
 
@@ -60,4 +73,4 @@ The `render.yaml` Blueprint runs the website and API together, so the laptop doe
 3. Render will read `render.yaml`; choose **Apply** to create the web service.
 4. Open the generated `onrender.com` URL on your phone.
 
-The free service may sleep when idle and take a little time to wake. Saved trips currently use `backend/data.json`; on a free host, that file is not durable across service replacements or restarts. Use persistent storage or a database before relying on cloud-saved trips.
+The free web service may sleep when idle and take a little time to wake. Existing trips still use `backend/data.json`; on a free host, that file is not durable across service replacements or restarts. Account profiles use the PostgreSQL service configured with `DATABASE_URL`.

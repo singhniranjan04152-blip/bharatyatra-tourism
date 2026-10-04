@@ -21,6 +21,7 @@ function loadEnv() {
     });
 }
 loadEnv();
+const { handleAuthRequest } = require("./auth");
 
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
@@ -442,6 +443,10 @@ async function handleAiRequest(request, response) {
 }
 
 async function handleApiRequest(request, response, requestPath) {
+  if (await handleAuthRequest(request, response, requestPath, loadWebsiteDestinations)) {
+    return true;
+  }
+
   if (requestPath === "/api/health" && request.method === "GET") {
     sendJson(response, 200, { ok: true, service: "bharatyatra-api" });
     return true;

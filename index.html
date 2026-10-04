@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <title>BHARATYATRA — Explore India</title>
+<link rel="stylesheet" href="/auth.css">
 
 <style>
 *{
@@ -832,6 +833,12 @@ body.dark{
         </li>
 
         <li>
+            <button type="button" onclick="openAccount()">
+                <span>👤</span> Account & Trip Match
+            </button>
+        </li>
+
+        <li>
             <button onclick="showFavorites()">
                 <span>♥</span> Favorites
             </button>
@@ -1174,6 +1181,92 @@ body.dark{
 <!-- ================= TOAST ================= -->
 
 <div class="toast" id="toast"></div>
+
+    <section class="account-modal" id="accountModal" aria-hidden="true" aria-labelledby="accountTitle">
+        <div class="account-dialog" role="dialog" aria-modal="true">
+            <button class="account-close" type="button" onclick="closeAccount()" aria-label="Close">✕</button>
+            <div class="account-kicker">BHARATYATRA PERSONAL</div>
+            <h2 id="accountTitle">Your travel, your way</h2>
+            <p class="account-intro">Create an account to save your travel preferences and get a trip plan made for you.</p>
+            <div id="accountNotice" class="account-notice" role="status" aria-live="polite"></div>
+
+            <div id="accountAuthForms" class="account-auth-forms">
+                <form id="accountLoginForm" class="account-form">
+                    <h3>Welcome back</h3>
+                    <label>Email address<input name="email" type="email" maxlength="254" autocomplete="email" required></label>
+                    <label>Password<input name="password" type="password" minlength="8" maxlength="128" autocomplete="current-password" required></label>
+                    <button class="account-primary" type="submit">Log in</button>
+                </form>
+                <div class="account-divider"><span>New to Bharatyatra?</span></div>
+                <form id="accountRegisterForm" class="account-form">
+                    <h3>Create your account</h3>
+                    <label>Your name<input name="name" type="text" maxlength="80" autocomplete="name" required></label>
+                    <label>Email address<input name="email" type="email" maxlength="254" autocomplete="email" required></label>
+                    <label>Password <small>(at least 8 characters)</small><input name="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" required></label>
+                    <div class="account-preferences">
+                        <h4>Build your first trip match</h4>
+                        <div class="account-fields">
+                            <label>Days<input name="days" type="number" min="1" max="30" value="5" required></label>
+                            <label>Total budget (₹)<input name="budget" type="number" min="1000" max="5000000" step="500" value="30000" required></label>
+                            <label>Travellers<input name="partySize" type="number" min="1" max="20" value="2" required></label>
+                        </div>
+                        <fieldset>
+                            <legend>What do you enjoy?</legend>
+                            <div class="account-interest-grid">
+                                <label><input type="checkbox" name="categories" value="Mountain"> Mountains</label>
+                                <label><input type="checkbox" name="categories" value="Beach"> Beaches</label>
+                                <label><input type="checkbox" name="categories" value="Heritage"> Heritage</label>
+                                <label><input type="checkbox" name="categories" value="Nature"> Nature</label>
+                                <label><input type="checkbox" name="categories" value="Spiritual"> Spiritual</label>
+                                <label><input type="checkbox" name="categories" value="Adventure"> Adventure</label>
+                            </div>
+                        </fieldset>
+                        <label>Travel pace
+                            <select name="pace">
+                                <option value="relaxed">Relaxed</option>
+                                <option value="balanced" selected>Balanced</option>
+                                <option value="packed">Packed</option>
+                            </select>
+                        </label>
+                    </div>
+                    <button class="account-primary" type="submit">Create account & find my trip</button>
+                </form>
+            </div>
+
+            <div id="accountProfile" class="account-profile" hidden>
+                <div class="account-welcome" id="accountWelcome"></div>
+                <form id="accountPreferencesForm" class="account-form">
+                    <h3>Your travel preferences</h3>
+                    <div class="account-fields">
+                        <label>Days<input name="days" type="number" min="1" max="30" required></label>
+                        <label>Total budget (₹)<input name="budget" type="number" min="1000" max="5000000" step="500" required></label>
+                        <label>Travellers<input name="partySize" type="number" min="1" max="20" required></label>
+                    </div>
+                    <fieldset>
+                        <legend>What do you enjoy?</legend>
+                        <div class="account-interest-grid">
+                            <label><input type="checkbox" name="categories" value="Mountain"> Mountains</label>
+                            <label><input type="checkbox" name="categories" value="Beach"> Beaches</label>
+                            <label><input type="checkbox" name="categories" value="Heritage"> Heritage</label>
+                            <label><input type="checkbox" name="categories" value="Nature"> Nature</label>
+                            <label><input type="checkbox" name="categories" value="Spiritual"> Spiritual</label>
+                            <label><input type="checkbox" name="categories" value="Adventure"> Adventure</label>
+                        </div>
+                    </fieldset>
+                    <label>Travel pace
+                        <select name="pace">
+                            <option value="relaxed">Relaxed</option>
+                            <option value="balanced">Balanced</option>
+                            <option value="packed">Packed</option>
+                        </select>
+                    </label>
+                    <button class="account-primary" type="submit">Save preferences & make my plan</button>
+                </form>
+                <div id="accountPlan" class="account-plan" hidden></div>
+                <button class="account-logout" type="button" onclick="logoutAccount()">Log out</button>
+            </div>
+        </div>
+    </section>
 
     <script>
 
@@ -2539,4 +2632,4 @@ document.getElementById("aiForm")
 });
 
 </script>
-
+<script src="/auth.js" defer></script>

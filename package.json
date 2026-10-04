@@ -5,7 +5,10 @@
   "description": "Lightweight India tourism website with a Node.js JSON backend",
   "scripts": {
     "start": "node backend/srever.js",
-    "check": "node --check backend/srever.js"
+    "check": "node --check backend/srever.js && node --check backend/auth.js && node --check auth.js"
+  },
+  "dependencies": {
+    "pg": "^8.16.3"
   },
   "engines": {
     "node": ">=18"
