@@ -14,12 +14,13 @@ let attemptChecks = 0;
 function database() {
   if (!process.env.DATABASE_URL) return null;
   if (!pool) {
+    const connectionUrl = new URL(process.env.DATABASE_URL);
+    connectionUrl.searchParams.delete("sslmode");
+    connectionUrl.searchParams.delete("ssl");
     pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
+      connectionString: connectionUrl.toString(),
       max: 3,
-      ssl: process.env.NODE_ENV === "production" || process.env.RENDER
-        ? { rejectUnauthorized: false }
-        : undefined
+      ssl: { rejectUnauthorized: false }
     });
     pool.on("error", (error) => console.error("Authentication database connection error:", error.message));
   }
