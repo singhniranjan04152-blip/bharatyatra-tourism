@@ -4,7 +4,7 @@ const path = require("path");
 
 const port = Number(process.env.PORT) || 3000;
 const host = process.env.HOST || "0.0.0.0";
-const rootDir = path.resolve(__dirname, "..");
+const frontendDir = path.resolve(__dirname, "..", "frontend");
 const envPath = path.join(__dirname, ".env");
 const dataPath = path.join(__dirname, "data.json");
 
@@ -182,7 +182,7 @@ function readRequestBody(request) {
 
 function loadWebsiteDestinations() {
   try {
-    const indexPath = path.join(rootDir, "index.html");
+    const indexPath = path.join(frontendDir, "index.html");
     if (!fs.existsSync(indexPath)) return [...defaultDestinations];
 
     const source = fs.readFileSync(indexPath, "utf8");
@@ -544,9 +544,9 @@ function serveStatic(request, response, requestPath) {
   }
 
   const relativePath = requestPath === "/" ? "/index.html" : requestPath;
-  const filePath = path.resolve(rootDir, `.${relativePath}`);
+  const filePath = path.resolve(frontendDir, `.${relativePath}`);
 
-  if (!filePath.startsWith(rootDir + path.sep) && filePath !== rootDir) {
+  if (!filePath.startsWith(frontendDir + path.sep) && filePath !== frontendDir) {
     response.writeHead(403);
     response.end("Forbidden");
     return;

@@ -2,6 +2,13 @@
 
 Tourism website with a lightweight Node.js backend. Destination browsing works without an account; account registration and saved trip preferences use PostgreSQL.
 
+## Project folders
+
+- `frontend/` contains the website page, styles, and browser-side JavaScript.
+- `backend/` contains the Node.js server, API handlers, local trip JSON storage, and the local `.env` file.
+- `database/` contains the PostgreSQL schema used to create the account and session tables in Supabase.
+- `tests/` contains automated project checks.
+
 ## Run on the laptop
 
 Install Node.js 18 or newer, then run:
