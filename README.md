@@ -22,7 +22,7 @@ Open:
 http://localhost:3000
 ```
 
-The existing trip planner creates `backend/data.json` when it first saves a trip. Account registration also requires a PostgreSQL connection; see **Account database setup** below.
+The trip planner lets travelers choose destinations, set travel dates and group size, and build an editable day-by-day starter itinerary. If a total trip budget is entered, it shows a rough daily and per-traveler budget split; these figures are planning estimates, not live prices. Saved trips use `backend/data.json`. Account registration also requires a PostgreSQL connection; see **Account database setup** below.
 
 ## Account database setup
 

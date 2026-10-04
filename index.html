@@ -573,6 +573,21 @@ body.dark{
 .trip-summary strong{display:block;color:var(--accent);font-size:18px;}
 .trip-summary small{color:var(--muted);font-size:10px;}
 .trip-section-title{margin-top:22px;font-size:15px;}
+.trip-destination-picker{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;}
+.trip-destination-picker button,.trip-edit-save{border:0;border-radius:10px;padding:10px 12px;background:var(--accent);color:#fff;font-weight:700;cursor:pointer;}
+.trip-selected-destinations{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+.trip-selected-destination{padding:5px 9px;border-radius:999px;background:rgba(255,107,44,.12);color:var(--accent);font-size:12px;}
+.trip-plan-intro{margin:8px 0 12px;color:var(--muted);font-size:12px;line-height:1.5;}
+.trip-day-card{margin:12px 0;padding:14px;background:var(--bg);border:1px solid var(--border);border-radius:14px;}
+.trip-day-heading{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:12px;}
+.trip-day-heading strong{font-size:15px;}
+.trip-day-heading small,.trip-day-budget{color:var(--muted);font-size:12px;}
+.trip-day-activity{margin:10px 0;}
+.trip-day-activity label{display:block;margin-bottom:5px;color:var(--muted);font-size:11px;font-weight:700;}
+.trip-day-activity textarea{width:100%;min-height:54px;resize:vertical;padding:9px;border:1px solid var(--border);border-radius:9px;background:var(--card);color:var(--text);font:inherit;font-size:13px;}
+.trip-day-budget{padding-top:9px;border-top:1px solid var(--border);line-height:1.5;}
+.trip-edit-save{width:100%;margin-top:8px;}
+.trip-edit-save[hidden]{display:none;}
 
     .ai-panel{
         position:fixed;
@@ -1154,23 +1169,37 @@ body.dark{
     <form class="trip-form" id="tripForm">
         <label for="tripName">Trip name</label>
         <input id="tripName" placeholder="e.g. Kerala escape" maxlength="60">
+        <label for="tripDestinationPicker">Choose destinations</label>
+        <div class="trip-destination-picker">
+            <select id="tripDestinationPicker" aria-label="Choose a destination">
+                <option value="">Choose from India</option>
+            </select>
+            <button type="button" id="addTripDestination">Add</button>
+        </div>
+        <div class="trip-selected-destinations" id="tripSelectedDestinations" aria-live="polite"></div>
         <div class="trip-form-row">
-            <div><label for="tripStart">Start date</label><input id="tripStart" type="date"></div>
-            <div><label for="tripEnd">End date</label><input id="tripEnd" type="date"></div>
+            <div><label for="tripStart">Start date</label><input id="tripStart" type="date" required></div>
+            <div><label for="tripEnd">End date</label><input id="tripEnd" type="date" required></div>
         </div>
         <div class="trip-form-row">
             <div><label for="tripTravellers">Travellers</label><input id="tripTravellers" type="number" min="1" max="30" value="2"></div>
-            <div><label for="tripBudget">Budget (Rs.)</label><input id="tripBudget" type="number" min="0" placeholder="30000"></div>
+            <div><label for="tripBudget">Total trip budget (Rs.)</label><input id="tripBudget" type="number" min="0" placeholder="30000"></div>
         </div>
         <label for="tripTransport">Preferred transport</label>
         <select id="tripTransport"><option>Any</option><option>Flight</option><option>Train</option><option>Road trip</option><option>Bus</option></select>
         <label for="tripNotes">Notes and preferences</label>
         <textarea id="tripNotes" placeholder="Food, hotels, activities, accessibility..." maxlength="500"></textarea>
-        <button class="primary-btn" type="submit" style="width:100%;margin-top:14px">Save Trip Details</button>
+        <button class="primary-btn" type="submit" style="width:100%;margin-top:14px">Build my day-wise plan</button>
     </form>
 
     <div class="trip-summary" id="tripSummary"></div>
     <p id="tripMeta" style="color:var(--muted);font-size:12px;line-height:1.5"></p>
+    <section id="tripItinerarySection" hidden aria-live="polite">
+        <h3 class="trip-section-title">Your day-wise itinerary</h3>
+        <p class="trip-plan-intro">A practical starter plan based on your dates and destinations. Edit any activity to make it yours. Budget figures are rough planning estimates, not live prices.</p>
+        <div id="tripItinerary"></div>
+        <button type="button" class="trip-edit-save" id="saveItineraryEdits" hidden>Save itinerary edits</button>
+    </section>
     <h3 class="trip-section-title">Your destinations</h3>
 
     <div id="tripList"></div>
@@ -1673,6 +1702,7 @@ async function loadBackendData(){
             destinations = destinationData.destinations.map(applyDestinationFacilities);
             renderDestinations(destinations);
         }
+        populateTripDestinationPicker();
 
         const savedTrip = Array.isArray(tripData.trips) ? tripData.trips.at(-1) : null;
         if(savedTrip){
@@ -2164,18 +2194,20 @@ let tripDetails=JSON.parse(
     localStorage.getItem("bharatyatra-trip-details")||"{}"
 );
 
+populateTripDestinationPicker();
+
 function addToTrip(place){
 
     if(!trip.some(x=>x.name===place.name)){
 
         trip.push(place);
+        const hadItinerary=clearTripItineraryForDestinationChange();
 
         saveTrip();
 
-        toast(
-            "🧳 "+place.name+
-            " added to your trip"
-        );
+        toast(hadItinerary
+            ? `${place.name} added. Rebuild your itinerary to include it.`
+            : `🧳 ${place.name} added to your trip`);
 
         updateTrip();
 
@@ -2209,12 +2241,35 @@ function saveTripLocally(){
 
 }
 
+function clearTripItineraryForDestinationChange(){
+    if(!Array.isArray(tripDetails.itinerary)||!tripDetails.itinerary.length) return false;
+    tripDetails.itinerary=[];
+    localStorage.setItem("bharatyatra-trip-details",JSON.stringify(tripDetails));
+    return true;
+}
+
 function saveTripDetails(){
     const start=document.getElementById("tripStart").value;
     const end=document.getElementById("tripEnd").value;
 
+    if(!trip.length){
+        toast("Add at least one destination to build your itinerary");
+        return;
+    }
+
+    if(!start||!end){
+        toast("Choose your trip start and end dates");
+        return;
+    }
+
     if(start&&end&&end<start){
         toast("End date must be after start date");
+        return;
+    }
+
+    const days=getTripDayCount(start,end);
+    if(days>30){
+        toast("For a clear itinerary, choose a trip of 30 days or less");
         return;
     }
 
@@ -2225,12 +2280,17 @@ function saveTripDetails(){
         travellers:document.getElementById("tripTravellers").value,
         budget:document.getElementById("tripBudget").value,
         transport:document.getElementById("tripTransport").value,
-        notes:document.getElementById("tripNotes").value.trim()
+        notes:document.getElementById("tripNotes").value.trim(),
+        itinerary:buildTripItinerary(start,end)
     };
+    if(!tripDetails.name){
+        tripDetails.name=`${trip[0].name} trip`;
+        document.getElementById("tripName").value=tripDetails.name;
+    }
     localStorage.setItem("bharatyatra-trip-details",JSON.stringify(tripDetails));
     updateTrip();
     persistTrip().catch(error=>toast(error.message));
-    toast("Trip details saved");
+    toast("Your day-wise itinerary is ready");
 }
 
 function loadTripDetails(){
@@ -2247,17 +2307,185 @@ function loadTripDetails(){
 
 function getTripDays(){
     if(!tripDetails.start||!tripDetails.end) return "-";
-    const start=new Date(tripDetails.start);
-    const end=new Date(tripDetails.end);
-    const days=Math.ceil((end-start)/(1000*60*60*24))+1;
+    const days=getTripDayCount(tripDetails.start,tripDetails.end);
     return days>0?days:"-";
 }
+
+function getTripDayCount(start,end){
+    const startParts=start.split("-").map(Number);
+    const endParts=end.split("-").map(Number);
+    const first=Date.UTC(startParts[0],startParts[1]-1,startParts[2]);
+    const last=Date.UTC(endParts[0],endParts[1]-1,endParts[2]);
+    return Math.floor((last-first)/86400000)+1;
+}
+
+function populateTripDestinationPicker(){
+    const picker=document.getElementById("tripDestinationPicker");
+    if(!picker) return;
+    const selected=picker.value;
+    picker.replaceChildren(new Option("Choose from India",""));
+    destinations.forEach(place=>picker.add(new Option(`${place.name} · ${place.state}`,place.name)));
+    if(destinations.some(place=>place.name===selected)) picker.value=selected;
+    renderTripSelectedDestinations();
+}
+
+function renderTripSelectedDestinations(){
+    const selected=document.getElementById("tripSelectedDestinations");
+    selected.replaceChildren();
+    if(!trip.length){
+        selected.textContent="Choose and add at least one place to start building your itinerary.";
+        selected.style.color="var(--muted)";
+        selected.style.fontSize="12px";
+        return;
+    }
+    selected.style.color="";
+    selected.style.fontSize="";
+    trip.forEach(place=>{
+        const chip=document.createElement("span");
+        chip.className="trip-selected-destination";
+        chip.textContent=place.name;
+        selected.appendChild(chip);
+    });
+}
+
+function buildTripItinerary(start,end){
+    const activities={
+        Mountain:[
+            ["Arrive, check in and take it easy","Explore the town centre and nearby viewpoints","Enjoy sunset views; have dinner close to your stay"],
+            ["Start with a scenic viewpoint","Explore a nearby valley, lake or local trail","Try a local cafe and plan tomorrow's route"],
+            ["Choose a gentle nature walk or local experience","Keep time for a relaxed lunch and rest","Visit a market or catch the evening view"]
+        ],
+        Beach:[
+            ["Arrive, check in and explore the nearby area","Relax by the beach and find a local lunch spot","Catch sunset by the shore"],
+            ["Start with a beach walk","Choose a water activity or coastal sightseeing","Enjoy a relaxed evening and local food"],
+            ["Explore another nearby beach or viewpoint","Take a break during the warmest hours","Visit a local market or waterfront"]
+        ],
+        Heritage:[
+            ["Arrive and take an easy old-town walk","Visit a nearby landmark or museum","Try local food and explore the evening market"],
+            ["Visit a major fort, palace or heritage site","Explore the surrounding neighbourhood","Enjoy a local food stop and rest"],
+            ["Choose a museum or guided heritage walk","Leave time for shopping and a relaxed lunch","Visit a nearby evening landmark"]
+        ],
+        Nature:[
+            ["Arrive, check in and explore nearby nature","Visit a local garden, waterfall or viewpoint","Enjoy a quiet evening and local food"],
+            ["Start early for a nature trail or tea garden","Take a relaxed lunch and rest","Choose a nearby sunset point"],
+            ["Explore a second nature spot at an easy pace","Keep time for local food and photos","Relax near your stay"]
+        ],
+        Spiritual:[
+            ["Arrive and settle in","Visit a nearby temple, ghat or spiritual site","Take a quiet evening walk and try local food"],
+            ["Visit the main spiritual site early","Explore the surrounding heritage area","Keep the evening relaxed"],
+            ["Choose a nearby place of interest","Take a break and enjoy local cuisine","Attend an evening ceremony if available"]
+        ],
+        Adventure:[
+            ["Arrive, check in and confirm activity timings","Explore the local area and prepare for tomorrow","Rest early and check weather conditions"],
+            ["Start your main outdoor activity early","Take a proper lunch and recovery break","Choose an easy evening activity"],
+            ["Try a second guided activity or scenic route","Keep a flexible rest window","Enjoy a relaxed local evening"]
+        ]
+    };
+    const startDate=new Date(`${start}T00:00:00Z`);
+    const days=getTripDayCount(start,end);
+    const travellers=Math.max(1,Number(document.getElementById("tripTravellers").value)||1);
+    const budget=Number(document.getElementById("tripBudget").value)||0;
+
+    return Array.from({length:days},(_,index)=>{
+        const date=new Date(startDate);
+        date.setUTCDate(date.getUTCDate()+index);
+        const place=trip[Math.min(trip.length-1,Math.floor(index*trip.length/days))];
+        const plan=activities[place.category]||activities.Nature;
+        const dayPlan=plan[Math.min(index%plan.length,plan.length-1)];
+        const totalDailyBudget=budget?Math.round(budget/days):0;
+
+        return {
+            date:date.toISOString().slice(0,10),
+            destination:place.name,
+            morning:dayPlan[0],
+            afternoon:dayPlan[1],
+            evening:dayPlan[2],
+            dailyBudget:totalDailyBudget,
+            travellers
+        };
+    });
+}
+
+function renderTripItinerary(){
+    const section=document.getElementById("tripItinerarySection");
+    const list=document.getElementById("tripItinerary");
+    const saveButton=document.getElementById("saveItineraryEdits");
+    const itinerary=Array.isArray(tripDetails.itinerary)?tripDetails.itinerary:[];
+    section.hidden=itinerary.length===0;
+    list.replaceChildren();
+    saveButton.hidden=true;
+    itinerary.forEach((day,index)=>{
+        const card=document.createElement("article");
+        card.className="trip-day-card";
+        const heading=document.createElement("div");
+        heading.className="trip-day-heading";
+        const title=document.createElement("strong");
+        title.textContent=`Day ${index+1} · ${day.destination}`;
+        const date=document.createElement("small");
+        date.textContent=new Date(`${day.date}T00:00:00`).toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"});
+        heading.append(title,date);
+        card.appendChild(heading);
+
+        [["morning","Morning"],["afternoon","Afternoon"],["evening","Evening"]].forEach(([key,label])=>{
+            const activity=document.createElement("div");
+            activity.className="trip-day-activity";
+            const activityLabel=document.createElement("label");
+            activityLabel.textContent=label;
+            const input=document.createElement("textarea");
+            input.value=day[key]||"";
+            input.setAttribute("aria-label",`${label} activity for day ${index+1}`);
+            input.addEventListener("input",()=>{day[key]=input.value;saveButton.hidden=false;});
+            activity.append(activityLabel,input);
+            card.appendChild(activity);
+        });
+
+        if(day.dailyBudget){
+            const dailyBudget=document.createElement("p");
+            dailyBudget.className="trip-day-budget";
+            const perPerson=Math.round(day.dailyBudget/Math.max(1,Number(day.travellers)||1));
+            const stay=Math.round(day.dailyBudget*0.4);
+            const meals=Math.round(day.dailyBudget*0.25);
+            const localTravel=Math.round(day.dailyBudget*0.2);
+            const activities=day.dailyBudget-stay-meals-localTravel;
+            dailyBudget.textContent=`Rough budget: Rs. ${day.dailyBudget.toLocaleString("en-IN")}/day total (about Rs. ${perPerson.toLocaleString("en-IN")} per traveller). Split: stay Rs. ${stay.toLocaleString("en-IN")}, meals Rs. ${meals.toLocaleString("en-IN")}, local travel Rs. ${localTravel.toLocaleString("en-IN")}, activities Rs. ${activities.toLocaleString("en-IN")}.`;
+            card.appendChild(dailyBudget);
+        }else{
+            const dailyBudget=document.createElement("p");
+            dailyBudget.className="trip-day-budget";
+            dailyBudget.textContent="Add a total budget above to see a rough daily budget guide.";
+            card.appendChild(dailyBudget);
+        }
+        list.appendChild(card);
+    });
+}
+
+document.getElementById("addTripDestination").addEventListener("click",()=>{
+    const picker=document.getElementById("tripDestinationPicker");
+    const place=destinations.find(destination=>destination.name===picker.value);
+    if(!place){
+        toast("Choose a destination first");
+        return;
+    }
+    addToTrip(place);
+    renderTripSelectedDestinations();
+    picker.value="";
+});
+
+document.getElementById("saveItineraryEdits").addEventListener("click",()=>{
+    tripDetails.itinerary=tripDetails.itinerary||[];
+    localStorage.setItem("bharatyatra-trip-details",JSON.stringify(tripDetails));
+    persistTrip().catch(error=>toast(error.message));
+    document.getElementById("saveItineraryEdits").hidden=true;
+    toast("Itinerary edits saved");
+});
 
 function updateTrip(){
 
     const list=
         document.getElementById("tripList");
 
+    renderTripSelectedDestinations();
+    renderTripItinerary();
     document.getElementById("tripSummary").innerHTML=`
         <div><strong>${trip.length}</strong><small>places</small></div>
         <div><strong>${getTripDays()}</strong><small>days</small></div>
@@ -2323,10 +2551,12 @@ function updateTrip(){
 function removeTrip(index){
 
     trip.splice(index,1);
+    const hadItinerary=clearTripItineraryForDestinationChange();
 
     saveTrip();
 
     updateTrip();
+    if(hadItinerary) toast("Destination removed. Rebuild your itinerary to update it.");
 
 }
 
