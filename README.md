@@ -4,7 +4,7 @@ Tourism website with a lightweight Node.js backend. Destination browsing works w
 
 ## Project folders
 
-- `frontend/` contains the website page, styles, and browser-side JavaScript.
+- `frontend/` contains `index.html`, `css/` stylesheets, and `js/` browser scripts. The page loads its main JavaScript with `defer`, so the HTML can be parsed before the script runs.
 - `backend/` contains the Node.js server, API handlers, local trip JSON storage, and the local `.env` file.
 - `database/` contains the PostgreSQL schema used to create the account and session tables in Supabase.
 - `tests/` contains automated project checks.
