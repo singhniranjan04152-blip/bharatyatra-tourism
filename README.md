@@ -31,6 +31,23 @@ http://localhost:3000
 
 The trip planner lets travelers choose destinations, set travel dates and group size, and build an editable day-by-day starter itinerary. If a total trip budget is entered, it shows a rough daily and per-traveler budget split; these figures are planning estimates, not live prices. Saved trips use `backend/data.json`. Account registration also requires a PostgreSQL connection; see **Account database setup** below.
 
+## Adventure packages (test checkout only)
+
+The destination details include two example adventure experiences per destination, with clearly labeled sample prices in INR. Booking forms accept 1–12 participants. These are demo listings only: there are no contracted operators, confirmed dates, permits, inventory, or real reservations.
+
+The payment integration is locked to Razorpay test keys (`RAZORPAY_KEY_ID` must start with `rzp_test_`). It validates the order and captured test payment on the server before marking a booking paid. It does not accept live Razorpay keys or collect real money. Confirmation email can be sent with Resend after setting `RESEND_API_KEY` and a verified `BOOKING_EMAIL_FROM` sender.
+
+Add the following as private Render environment variables or to `backend/.env` only for local tests:
+
+```text
+RAZORPAY_KEY_ID=rzp_test_...
+RAZORPAY_KEY_SECRET=...
+RESEND_API_KEY=...
+BOOKING_EMAIL_FROM=Bharatyatra <bookings@your-verified-domain.example>
+```
+
+The booking table is created by the existing PostgreSQL schema initializer. Never put payment or email secrets in frontend files or commit them. Before accepting real bookings, use verified local operators, accurate prices and availability, legal/safety terms, customer support and refund policies, a verified email sender, webhook-based payment reconciliation, and a separate reviewed live-payment configuration.
+
 ## Account database setup
 
 The email/password account feature stores password hashes, login sessions, and travel preferences in PostgreSQL. It does not store passwords as plain text and does not use browser local storage for authentication.

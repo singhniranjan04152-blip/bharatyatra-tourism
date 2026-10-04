@@ -384,6 +384,10 @@ destinations.forEach(applyDestinationFacilities);
 const API_BASE = "/api";
 let serverTripId = null;
 let apiAvailable = false;
+let adventurePackages = [];
+let testPaymentConfigured = false;
+let bookingEmailConfigured = false;
+let selectedAdventure = null;
 
 async function loadBackendData(){
     try{
@@ -440,7 +444,24 @@ async function persistTrip(){
     serverTripId = result.trip?.id || serverTripId;
 }
 
+async function loadAdventurePackages(){
+    const list=document.getElementById("modalAdventureList");
+    try{
+        const response=await fetch(`${API_BASE}/adventures`);
+        if(!response.ok) throw new Error("Adventure packages could not be loaded.");
+        const result=await response.json();
+        adventurePackages=Array.isArray(result.packages)?result.packages:[];
+        testPaymentConfigured=result.paymentConfigured===true;
+        bookingEmailConfigured=result.emailConfigured===true;
+        if(selectedPlace) renderDestinationAdventures(selectedPlace.name);
+    }catch(error){
+        console.error("Adventure package loading failed:",error);
+        list.textContent="Adventure packages are temporarily unavailable. Please try again later.";
+    }
+}
+
 loadBackendData();
+loadAdventurePackages();
 
 /* =====================================================
    HERO SLIDES
@@ -790,10 +811,162 @@ function openDestination(index){
     document.getElementById("modalStayOptions").innerHTML=
         selectedPlace.stayOptions.map(item=>`<span class="facility-tag">${item}</span>`).join("");
 
+    renderDestinationAdventures(selectedPlace.name);
+
     document.getElementById("modal")
         .classList.add("show");
 
 }
+
+function renderDestinationAdventures(destinationName){
+    const list=document.getElementById("modalAdventureList");
+    const packages=adventurePackages.filter(item=>item.destination===destinationName);
+    list.replaceChildren();
+    if(!packages.length){
+        list.textContent="Loading safe local experience suggestions...";
+        return;
+    }
+    packages.forEach(adventure=>{
+        const card=document.createElement("article");
+        card.className="adventure-card";
+        const heading=document.createElement("h4");
+        heading.textContent=adventure.name;
+        const description=document.createElement("p");
+        description.textContent=adventure.description;
+        const footer=document.createElement("div");
+        footer.className="adventure-card-footer";
+        const price=document.createElement("strong");
+        price.textContent=`Sample: Rs. ${adventure.unitPrice.toLocaleString("en-IN")} / person`;
+        const button=document.createElement("button");
+        button.type="button";
+        button.className="adventure-book-button";
+        button.textContent=testPaymentConfigured?"Book test package":"Test checkout not configured";
+        button.disabled=!testPaymentConfigured;
+        button.addEventListener("click",()=>openAdventureBooking(adventure.id));
+        footer.append(price,button);
+        card.append(heading,description,footer);
+        list.appendChild(card);
+    });
+}
+
+function setBookingNotice(message,isError=false){
+    const notice=document.getElementById("bookingNotice");
+    notice.textContent=message;
+    notice.classList.add("visible");
+    notice.style.color=isError?"#b42318":"";
+}
+
+function openAdventureBooking(packageId){
+    selectedAdventure=adventurePackages.find(item=>item.id===packageId)||null;
+    if(!selectedAdventure) return;
+    document.getElementById("bookingPackageSummary").textContent=
+        `${selectedAdventure.name} · ${selectedAdventure.destination} · Rs. ${selectedAdventure.unitPrice.toLocaleString("en-IN")} / person`;
+    const modal=document.getElementById("adventureBookingModal");
+    const form=document.getElementById("adventureBookingForm");
+    form.reset();
+    form.elements.participants.value="1";
+    form.elements.activityDate.min=new Date().toISOString().slice(0,10);
+    const maxDate=new Date();
+    maxDate.setUTCDate(maxDate.getUTCDate()+365);
+    form.elements.activityDate.max=maxDate.toISOString().slice(0,10);
+    const button=document.getElementById("adventureBookingSubmit");
+    button.disabled=!testPaymentConfigured;
+    setBookingNotice(testPaymentConfigured
+        ? (bookingEmailConfigured
+            ? "Razorpay TEST checkout is configured. Sample prices only; no real money is collected and no activity is reserved."
+            : "Razorpay TEST checkout is configured. Confirmation email is not configured yet; no real money is collected.")
+        : "Test checkout is not configured on the server. No real payment can be taken.",!testPaymentConfigured);
+    modal.classList.add("open");
+    modal.setAttribute("aria-hidden","false");
+}
+
+function closeAdventureBooking(){
+    const modal=document.getElementById("adventureBookingModal");
+    modal.classList.remove("open");
+    modal.setAttribute("aria-hidden","true");
+}
+
+document.getElementById("closeAdventureBooking")
+    .addEventListener("click",closeAdventureBooking);
+
+document.getElementById("adventureBookingModal")
+    .addEventListener("click",event=>{
+        if(event.target.id==="adventureBookingModal") closeAdventureBooking();
+    });
+
+document.getElementById("adventureBookingForm")
+    .addEventListener("submit",async event=>{
+        event.preventDefault();
+        if(!selectedAdventure||!testPaymentConfigured) return;
+        if(typeof window.Razorpay!=="function"){
+            setBookingNotice("Razorpay checkout did not load. Check your connection and try again.",true);
+            return;
+        }
+        const form=event.currentTarget;
+        const submit=document.getElementById("adventureBookingSubmit");
+        const payload={
+            packageId:selectedAdventure.id,
+            name:form.elements.name.value.trim(),
+            email:form.elements.email.value.trim(),
+            phone:form.elements.phone.value.trim(),
+            activityDate:form.elements.activityDate.value,
+            participants:Number(form.elements.participants.value)
+        };
+        submit.disabled=true;
+        setBookingNotice("Creating a secure Razorpay test order...");
+        try{
+            const response=await fetch(`${API_BASE}/bookings/order`,{
+                method:"POST",
+                headers:{"Content-Type":"application/json"},
+                body:JSON.stringify(payload)
+            });
+            const order=await response.json();
+            if(!response.ok) throw new Error(order.error||"Test order could not be created.");
+            const checkout=new window.Razorpay({
+                key:order.keyId,
+                amount:order.amount,
+                currency:order.currency,
+                name:"Bharatyatra (Test)",
+                description:`${order.packageName} · ${payload.participants} participant(s)`,
+                order_id:order.orderId,
+                prefill:{name:payload.name,email:payload.email,contact:payload.phone},
+                notes:{booking_id:order.bookingId},
+                theme:{color:"#ff6b2c"},
+                handler:async payment=>{
+                    setBookingNotice("Verifying the test payment...");
+                    try{
+                        const verification=await fetch(`${API_BASE}/bookings/verify`,{
+                            method:"POST",
+                            headers:{"Content-Type":"application/json"},
+                            body:JSON.stringify({
+                                bookingId:order.bookingId,
+                                orderId:payment.razorpay_order_id,
+                                paymentId:payment.razorpay_payment_id,
+                                signature:payment.razorpay_signature
+                            })
+                        });
+                        const result=await verification.json();
+                        if(!verification.ok||!result.paid) throw new Error(result.error||"Test payment verification failed.");
+                        setBookingNotice(result.emailSent
+                            ? `Test payment verified. Confirmation sent to ${payload.email}. This is not a real booking.`
+                            : "Test payment verified, but confirmation email is not configured. This is not a real booking.",!result.emailSent);
+                    }catch(error){
+                        setBookingNotice(error.message,true);
+                    }finally{
+                        submit.disabled=false;
+                    }
+                },
+                modal:{ondismiss:()=>{
+                    setBookingNotice("Test checkout was closed. No booking was confirmed.");
+                    submit.disabled=false;
+                }}
+            });
+            checkout.open();
+        }catch(error){
+            setBookingNotice(error.message,true);
+            submit.disabled=false;
+        }
+    });
 
 function closeModal(){
 
@@ -1559,4 +1732,3 @@ document.getElementById("aiForm")
     }
 
 });
-

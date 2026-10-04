@@ -373,6 +373,15 @@
                 </div>
             </div>
 
+            <section class="adventure-section">
+                <div class="adventure-heading">
+                    <h3>Adventure experiences</h3>
+                    <span class="sample-price-badge">SAMPLE TEST PRICES</span>
+                </div>
+                <p class="adventure-disclaimer">Demo activities and prices only. Local operator, permits, safety rules and availability must be confirmed before a real launch.</p>
+                <div class="adventure-list" id="modalAdventureList"></div>
+            </section>
+
             <br>
 
             <button
@@ -443,6 +452,25 @@
     <div id="tripList"></div>
 
 </div>
+
+<section class="booking-modal" id="adventureBookingModal" aria-hidden="true">
+    <div class="booking-dialog" role="dialog" aria-modal="true" aria-labelledby="bookingTitle">
+        <button class="booking-close" type="button" id="closeAdventureBooking" aria-label="Close">✕</button>
+        <p class="account-kicker">RAZORPAY TEST MODE</p>
+        <h2 id="bookingTitle">Book an adventure</h2>
+        <p class="booking-package-summary" id="bookingPackageSummary"></p>
+        <p class="adventure-disclaimer">Sample price only. Test checkout never collects real money or reserves an activity. Confirmation email requires email service setup.</p>
+        <p class="booking-notice" id="bookingNotice" role="status" aria-live="polite"></p>
+        <form id="adventureBookingForm">
+            <label>Your name<input name="name" type="text" maxlength="80" autocomplete="name" required></label>
+            <label>Email for confirmation<input name="email" type="email" maxlength="254" autocomplete="email" required></label>
+            <label>Indian mobile number<input name="phone" type="tel" inputmode="tel" maxlength="16" placeholder="9876543210" autocomplete="tel" required></label>
+            <label>Activity date<input name="activityDate" type="date" required></label>
+            <label>Participants (max 12)<input name="participants" type="number" min="1" max="12" value="1" required></label>
+            <button class="booking-primary" id="adventureBookingSubmit" type="submit">Continue to Razorpay test checkout</button>
+        </form>
+    </div>
+</section>
 
 
 <!-- ================= TOAST ================= -->
@@ -535,5 +563,6 @@
         </div>
     </section>
 
+    <script src="https://checkout.razorpay.com/v1/checkout.js" defer></script>
     <script src="/js/site.js" defer></script>
     <script src="/js/auth.js" defer></script>

@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node backend/srever.js",
     "check": "node --check backend/srever.js && node --check backend/auth.js && node --check frontend/js/site.js && node --check frontend/js/auth.js",
-    "test": "node tests/facilityFeature.test.js"
+    "test": "node tests/facilityFeature.test.js && node tests/adventureBooking.test.js"
   },
   "dependencies": {
     "pg": "^8.16.3"

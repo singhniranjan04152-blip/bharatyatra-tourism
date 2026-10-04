@@ -397,4 +397,4 @@ async function handleAuthRequest(request, response, requestPath, destinationsLoa
   }
 }
 
-module.exports = { handleAuthRequest };
+module.exports = { database, ensureSchema, handleAuthRequest };

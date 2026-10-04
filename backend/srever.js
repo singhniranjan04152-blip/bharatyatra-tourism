@@ -22,6 +22,7 @@ function loadEnv() {
 }
 loadEnv();
 const { handleAuthRequest } = require("./auth");
+const { handleBookingRequest } = require("./adventures");
 
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
@@ -182,10 +183,10 @@ function readRequestBody(request) {
 
 function loadWebsiteDestinations() {
   try {
-    const indexPath = path.join(frontendDir, "index.html");
-    if (!fs.existsSync(indexPath)) return [...defaultDestinations];
+    const destinationPath = path.join(frontendDir, "js", "site.js");
+    if (!fs.existsSync(destinationPath)) return [...defaultDestinations];
 
-    const source = fs.readFileSync(indexPath, "utf8");
+    const source = fs.readFileSync(destinationPath, "utf8");
     const items = [...source.matchAll(/\{([\s\S]*?)\n\s*\}/g)]
       .map((match) => {
         const block = match[1];
@@ -444,6 +445,10 @@ async function handleAiRequest(request, response) {
 
 async function handleApiRequest(request, response, requestPath) {
   if (await handleAuthRequest(request, response, requestPath, loadWebsiteDestinations)) {
+    return true;
+  }
+
+  if (await handleBookingRequest(request, response, requestPath, loadWebsiteDestinations)) {
     return true;
   }
 
